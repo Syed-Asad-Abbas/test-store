@@ -1492,3 +1492,124 @@ a.product__text {
     border: none;
   }
 }
+
+/* ==========================================================================
+   Product Range Metafield Swatch Selector
+   ========================================================================== */
+
+.product-range-picker {
+  margin-bottom: 2rem;
+  border: none;
+  padding: 0;
+  max-width: 44rem;
+}
+
+.product-range-picker .form__label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.product-range__selected-title {
+  font-weight: 400;
+  color: rgba(var(--color-foreground), 0.75);
+}
+
+.product-range__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.product-range__option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.8rem;
+  height: 4.8rem;
+  padding: 0.2rem;
+  border-radius: 50%;
+  border: 0.1rem solid rgba(var(--color-foreground), 0.15);
+  background-color: rgb(var(--color-background));
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  outline-offset: 0.2rem;
+  outline: 0.2rem solid transparent;
+  transition: outline-color var(--duration-short) ease, transform var(--duration-short) ease, border-color var(--duration-short) ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.product-range__option:hover {
+  outline: 0.2rem solid rgba(var(--color-foreground), 0.4);
+  transform: translateY(-1px);
+}
+
+.product-range__option:focus-visible {
+  outline: 0.2rem solid rgb(var(--color-foreground));
+  box-shadow: 0 0 0 0.2rem rgb(var(--color-background)), 0 0 0.1rem 0.4rem rgba(var(--color-foreground), 0.25);
+}
+
+.product-range__option.is-active {
+  outline: 0.2rem solid rgb(var(--color-foreground));
+  border-color: transparent;
+  box-shadow: 0 0 0 0.2rem rgb(var(--color-background));
+}
+
+.product-range__option.is-loading {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: wait;
+}
+
+.product-range__option.is-unavailable {
+  opacity: 0.5;
+}
+
+.product-range__option.is-unavailable::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 0.1rem;
+  background-color: rgba(var(--color-foreground), 0.6);
+  transform: rotate(-45deg);
+}
+
+.product-range__swatch-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: rgba(var(--color-foreground), 0.04);
+}
+
+.product-range__thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.product-range__swatch-fallback {
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0.05rem;
+  color: rgb(var(--color-foreground));
+}
+
+/* Loading state indicator during Section Rendering API fetch */
+product-info[aria-busy='true'] {
+  opacity: 0.7;
+  pointer-events: none;
+  transition: opacity var(--duration-short) ease;
+}

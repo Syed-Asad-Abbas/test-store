@@ -7,6 +7,9 @@ if (!customElements.get('product-info')) {
       onVariantChangeUnsubscriber = undefined;
       cartUpdateUnsubscriber = undefined;
       abortController = undefined;
+      productRangeAbortController = undefined;
+      onPopStateBound = undefined;
+      onProductRangeClickBound = undefined;
       pendingRequestUrl = null;
       preProcessHtmlCallbacks = [];
       postProcessHtmlCallbacks = [];
@@ -26,6 +29,7 @@ if (!customElements.get('product-info')) {
         );
 
         this.initQuantityHandlers();
+        this.initProductRangeSwitcher();
         this.dispatchEvent(new CustomEvent('product-info:loaded', { bubbles: true }));
       }
 
@@ -48,6 +52,7 @@ if (!customElements.get('product-info')) {
       disconnectedCallback() {
         this.onVariantChangeUnsubscriber();
         this.cartUpdateUnsubscriber?.();
+        this.destroyProductRangeSwitcher();
       }
 
       initializeProductSwapUtility() {
@@ -439,6 +444,175 @@ if (!customElements.get('product-info')) {
 
       get sectionId() {
         return this.dataset.originalSection || this.dataset.section;
+      }
+
+      /**
+       * Initializes event listeners for the Product Range metafield switcher
+       */
+      initProductRangeSwitcher() {
+        this.onProductRangeClickBound = this.handleProductRangeClick.bind(this);
+        this.addEventListener('click', this.onProductRangeClickBound);
+
+        this.onPopStateBound = this.handlePopStateRangeSwitch.bind(this);
+        window.addEventListener('popstate', this.onPopStateBound);
+      }
+
+      /**
+       * Cleans up event listeners and aborts any active requests
+       */
+      destroyProductRangeSwitcher() {
+        if (this.onProductRangeClickBound) {
+          this.removeEventListener('click', this.onProductRangeClickBound);
+        }
+        if (this.onPopStateBound) {
+          window.removeEventListener('popstate', this.onPopStateBound);
+        }
+        this.productRangeAbortController?.abort();
+      }
+
+      /**
+       * Handles click interactions on product range swatch/option links
+       * @param {MouseEvent} event
+       */
+      handleProductRangeClick(event) {
+        const option = event.target.closest('[data-product-range-option]');
+        if (!option || !this.contains(option)) return;
+
+        event.preventDefault();
+
+        // Avoid re-fetching currently active product
+        if (option.classList.contains('is-active') || option.getAttribute('aria-checked') === 'true') {
+          return;
+        }
+
+        const productUrl = option.dataset.productUrl || option.getAttribute('href');
+        if (!productUrl) return;
+
+        this.switchProductByUrl(productUrl, option, false);
+      }
+
+      /**
+       * Handles browser back/forward history navigation
+       * @param {PopStateEvent} event
+       */
+      handlePopStateRangeSwitch(event) {
+        const currentPath = window.location.pathname + window.location.search;
+        if (currentPath && currentPath !== this.dataset.url) {
+          this.switchProductByUrl(currentPath, null, true);
+        }
+      }
+
+      /**
+       * Pure helper to construct the Section Rendering API endpoint URL
+       * @param {string} productUrl
+       * @param {string} sectionId
+       * @returns {string}
+       */
+      buildProductSectionUrl(productUrl, sectionId) {
+        const separator = productUrl.includes('?') ? '&' : '?';
+        return `${productUrl}${separator}section_id=${encodeURIComponent(sectionId)}`;
+      }
+
+      /**
+       * Fetches section HTML via Shopify Section Rendering API and parses it
+       * @param {string} requestUrl
+       * @param {AbortSignal} signal
+       * @returns {Promise<Document>}
+       */
+      async fetchProductSectionHtml(requestUrl, signal) {
+        const response = await fetch(requestUrl, { signal });
+        if (!response.ok) {
+          throw new Error(`Section Rendering API failed with status ${response.status}`);
+        }
+        const responseText = await response.text();
+        return new DOMParser().parseFromString(responseText, 'text/html');
+      }
+
+      /**
+       * Coordinates fetching and dynamic DOM swapping for a selected product
+       * @param {string} productUrl
+       * @param {HTMLElement|null} clickedOption
+       * @param {boolean} isPopState
+       */
+      async switchProductByUrl(productUrl, clickedOption = null, isPopState = false) {
+        // Abort previous in-flight request to handle rapid clicking gracefully
+        this.productRangeAbortController?.abort();
+        this.productRangeAbortController = new AbortController();
+
+        this.setAttribute('aria-busy', 'true');
+        if (clickedOption) {
+          clickedOption.classList.add('is-loading');
+        }
+
+        try {
+          const requestUrl = this.buildProductSectionUrl(productUrl, this.sectionId);
+          const parsedDoc = await this.fetchProductSectionHtml(requestUrl, this.productRangeAbortController.signal);
+
+          this.applyProductSectionSwap(parsedDoc, productUrl, isPopState);
+        } catch (error) {
+          if (error.name === 'AbortError') {
+            return;
+          }
+          console.error('[ProductRange] Section rendering swap failed:', error);
+          if (!isPopState) {
+            window.location.href = productUrl;
+          }
+        } finally {
+          this.removeAttribute('aria-busy');
+          if (clickedOption) {
+            clickedOption.classList.remove('is-loading');
+          }
+        }
+      }
+
+      /**
+       * Validates parsed section, updates history/title, and executes viewTransition swap
+       * @param {Document} parsedDoc
+       * @param {string} productUrl
+       * @param {boolean} isPopState
+       */
+      applyProductSectionSwap(parsedDoc, productUrl, isPopState = false) {
+        const newProductInfo =
+          parsedDoc.querySelector(`product-info[id="${this.id}"]`) ||
+          parsedDoc.querySelector(`product-info[id^="MainProduct"]`) ||
+          parsedDoc.querySelector('product-info');
+
+        if (!newProductInfo) {
+          throw new Error(`Rendered response missing valid <product-info> section for ${productUrl}`);
+        }
+
+        // Update document title
+        const newTitle =
+          parsedDoc.querySelector('title')?.innerText ||
+          newProductInfo.querySelector('.product__title h1')?.innerText ||
+          newProductInfo.dataset.productTitle;
+
+        if (newTitle) {
+          document.title = newTitle.trim();
+        }
+
+        // Update share button URL if present
+        this.querySelector('share-button')?.updateUrl(`${window.shopUrl || window.location.origin}${productUrl}`);
+
+        // Update browser URL via History API
+        if (!isPopState && this.dataset.updateUrl !== 'false') {
+          window.history.pushState({ productUrl }, '', productUrl);
+        }
+
+        // Seamlessly swap the DOM element and re-execute custom element lifecycle
+        HTMLUpdateUtility.viewTransition(
+          this,
+          newProductInfo,
+          this.preProcessHtmlCallbacks,
+          this.postProcessHtmlCallbacks
+        );
+
+        // Notify recommendations section if present on page
+        const newProductId = newProductInfo.dataset.productId;
+        if (newProductId) {
+          const recommendations = document.querySelector('product-recommendations');
+          recommendations?.loadRecommendations(newProductId);
+        }
       }
     }
   );

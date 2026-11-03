@@ -16,11 +16,16 @@
   {{ 'component-rating.css' | asset_url | stylesheet_tag }}
   {{ 'component-deferred-media.css' | asset_url | stylesheet_tag }}
 
-  {% unless product.has_only_default_variant %}
+  {%- assign has_product_range = false -%}
+  {%- if product.metafields.custom.product_range.value != blank -%}
+    {%- assign has_product_range = true -%}
+  {%- endif -%}
+
+  {% if product.has_only_default_variant == false or has_product_range %}
     {{ 'component-product-variant-picker.css' | asset_url | stylesheet_tag }}
     {{ 'component-swatch-input.css' | asset_url | stylesheet_tag }}
     {{ 'component-swatch.css' | asset_url | stylesheet_tag }}
-  {% endunless %}
+  {% endif %}
   {%- if product.quantity_price_breaks_configured? -%}
     {{ 'component-volume-pricing.css' | asset_url | stylesheet_tag }}
   {%- endif -%}
