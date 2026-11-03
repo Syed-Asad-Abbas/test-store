@@ -11,10 +11,22 @@
 {%- assign product_range_items = product.metafields.custom.product_range.value -%}
 {%- if product_range_items != blank -%}
   {%- assign range_label = 'products.product.color' | t: default: 'Color' -%}
+  {%- liquid
+    assign current_color = product.metafields.custom.color.value | default: null
+    if current_color == blank
+      if product.title contains ' - '
+        assign current_color = product.title | split: ' - ' | last | strip
+      elsif product.title contains '-'
+        assign current_color = product.title | split: '-' | last | strip
+      else
+        assign current_color = product.title
+      endif
+    endif
+  -%}
   <fieldset class="js product-form__input product-range-picker" data-product-range-container>
     <legend class="form__label">
       <span class="product-range__label-heading">{{ range_label }}:</span>
-      <span class="product-range__selected-title" data-product-range-title>{{ product.title }}</span>
+      <span class="product-range__selected-title" data-product-range-title>{{ current_color }}</span>
     </legend>
     <div
       class="product-range__options"
@@ -23,38 +35,51 @@
     >
       {%- for range_item in product_range_items -%}
         {%- if range_item != blank and range_item.title != blank -%}
-          {%- assign is_selected = false -%}
-          {%- if range_item.id == product.id -%}
-            {%- assign is_selected = true -%}
-          {%- endif -%}
+          {%- liquid
+            assign is_selected = false
+            if range_item.id == product.id
+              assign is_selected = true
+            endif
+
+            assign item_color = range_item.metafields.custom.color.value | default: null
+            if item_color == blank
+              if range_item.title contains ' - '
+                assign item_color = range_item.title | split: ' - ' | last | strip
+              elsif range_item.title contains '-'
+                assign item_color = range_item.title | split: '-' | last | strip
+              else
+                assign item_color = range_item.title
+              endif
+            endif
+          -%}
           <a
             href="{{ range_item.url }}"
             class="product-range__option{% if is_selected %} is-active{% endif %}{% unless range_item.available %} is-unavailable{% endunless %}"
             data-product-range-option
             data-product-url="{{ range_item.url }}"
             data-product-id="{{ range_item.id }}"
-            data-product-title="{{ range_item.title | escape }}"
+            data-product-title="{{ item_color | escape }}"
             role="radio"
             aria-checked="{% if is_selected %}true{% else %}false{% endif %}"
             tabindex="{% if is_selected %}0{% else %}-1{% endif %}"
-            title="{{ range_item.title | escape }}"
-            aria-label="{{ range_item.title | escape }}"
+            title="{{ item_color | escape }}"
+            aria-label="{{ item_color | escape }}"
           >
             <span class="product-range__swatch-wrapper">
               {%- if range_item.featured_image != blank -%}
                 <img
                   src="{{ range_item.featured_image | image_url: width: 96, height: 96, crop: 'center' }}"
-                  alt="{{ range_item.featured_image.alt | default: range_item.title | escape }}"
+                  alt="{{ range_item.featured_image.alt | default: item_color | escape }}"
                   loading="lazy"
                   width="48"
                   height="48"
                   class="product-range__thumbnail"
                 >
               {%- else -%}
-                <span class="product-range__swatch-fallback">{{ range_item.title | slice: 0, 2 | upcase }}</span>
+                <span class="product-range__swatch-fallback">{{ item_color | slice: 0, 2 | upcase }}</span>
               {%- endif -%}
             </span>
-            <span class="product-range__option-title visually-hidden">{{ range_item.title }}</span>
+            <span class="product-range__option-title visually-hidden">{{ item_color }}</span>
           </a>
         {%- endif -%}
       {%- endfor -%}
