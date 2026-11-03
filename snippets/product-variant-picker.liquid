@@ -10,15 +10,16 @@
 {% endcomment %}
 {%- assign product_range_items = product.metafields.custom.product_range.value -%}
 {%- if product_range_items != blank -%}
+  {%- assign range_label = 'products.product.color' | t: default: 'Color' -%}
   <fieldset class="js product-form__input product-range-picker" data-product-range-container>
     <legend class="form__label">
-      <span class="product-range__label-heading">{{ 'products.product.color' | t | default: 'Color / Style' }}:</span>
+      <span class="product-range__label-heading">{{ range_label }}:</span>
       <span class="product-range__selected-title" data-product-range-title>{{ product.title }}</span>
     </legend>
     <div
       class="product-range__options"
       role="radiogroup"
-      aria-label="{{ 'products.product.color' | t | default: 'Color / Style' }}"
+      aria-label="{{ range_label }}"
     >
       {%- for range_item in product_range_items -%}
         {%- if range_item != blank and range_item.title != blank -%}

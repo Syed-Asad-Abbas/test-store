@@ -117,6 +117,7 @@
       "inventory_out_of_stock": "Out of stock",
       "inventory_out_of_stock_continue_selling": "In stock",
       "sku": "SKU",
+      "color": "Color",
       "on_sale": "Sale",
       "product_variants": "Product variants",
       "media": {
