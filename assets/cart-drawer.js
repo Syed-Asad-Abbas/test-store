@@ -363,6 +363,11 @@ class CartRewardCoordinator {
 
   /**
    * Refreshes the cart drawer HTML in-place via Dawn's Section Rendering API.
+   *
+   * Replaces the full #CartDrawer element so Liquid-computed data (qualifying
+   * subtotal, progress %, gift rows) is always accurate. Also refreshes the
+   * cart-icon bubble and re-attaches the overlay close listener.
+   *
    * @returns {Promise<void>}
    */
   static async refreshDrawerMarkup() {
@@ -371,10 +376,20 @@ class CartRewardCoordinator {
       const htmlText = await response.text();
       const parsedDOM = new DOMParser().parseFromString(htmlText, 'text/html');
 
-      const drawerInner = document.querySelector('.drawer__inner');
-      const freshInner = parsedDOM.querySelector('.drawer__inner');
-      if (drawerInner && freshInner) {
-        drawerInner.innerHTML = freshInner.innerHTML;
+      // Replace the full #CartDrawer (not just .drawer__inner) so the
+      // cart-drawer-items custom element, overlay, and all data-attributes
+      // are fully re-hydrated from the server-rendered Liquid.
+      const cartDrawerEl = document.querySelector('#CartDrawer');
+      const freshCartDrawer = parsedDOM.querySelector('#CartDrawer');
+      if (cartDrawerEl && freshCartDrawer) {
+        cartDrawerEl.innerHTML = freshCartDrawer.innerHTML;
+      }
+
+      // Re-attach overlay click handler after innerHTML replacement
+      const overlay = document.querySelector('#CartDrawer-Overlay');
+      const drawerCustomEl = document.querySelector('cart-drawer');
+      if (overlay && drawerCustomEl) {
+        overlay.addEventListener('click', drawerCustomEl.close.bind(drawerCustomEl));
       }
 
       // Also refresh header cart icon bubble
@@ -387,12 +402,18 @@ class CartRewardCoordinator {
         bubbleContainer.innerHTML = freshBubble.innerHTML;
       }
     } catch (error) {
-      console.error('Failed to refresh drawer markup:', error);
+      console.error('[CartRewardCoordinator] Failed to refresh drawer markup:', error);
     }
   }
 
   /**
    * Adds the automatic free gift to cart via POST /cart/add.js.
+   *
+   * IMPORTANT: This function must NOT call cartDrawer.renderContents() or
+   * CartRewardCoordinator.sync() — both of which trigger re-entry while
+   * isSyncing=true, creating a deadlock. Instead it calls refreshDrawerMarkup()
+   * which fetches fresh section HTML independently and re-paints the drawer.
+   *
    * @param {string|number} variantId - Gift variant ID
    * @returns {Promise<boolean>}
    */
@@ -404,88 +425,53 @@ class CartRewardCoordinator {
 
     try {
       const addUrl = `${window.routes?.cart_add_url || '/cart/add'}.js`;
-      const cartDrawer = document.querySelector('cart-drawer');
 
-      // Use FormData with sections for reliable Shopify cart rendering
-      const formData = new FormData();
-      formData.append('id', String(variantId));
-      formData.append('quantity', '1');
-      formData.append('properties[_is_free_gift]', 'true');
-      formData.append('properties[Reward]', 'Free Gift ($150+ Order)');
+      // Build JSON payload — most reliable for /cart/add.js with line properties
+      const payload = {
+        id: Number(variantId),
+        quantity: 1,
+        properties: {
+          _is_free_gift: 'true',
+          Reward: 'Free Gift ($150+ Order)',
+        },
+      };
 
-      if (cartDrawer && typeof cartDrawer.getSectionsToRender === 'function') {
-        const sections = cartDrawer.getSectionsToRender().map((s) => s.id);
-        formData.append('sections', sections.join(','));
-        formData.append('sections_url', window.location.pathname);
-      }
+      console.log('[CartRewardCoordinator] Adding free gift variant ID:', variantId, 'payload:', payload);
 
-      console.log('[CartRewardCoordinator] Adding free gift variant ID:', variantId);
-
-      let response = await fetch(addUrl, {
+      const response = await fetch(addUrl, {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
           Accept: 'application/json',
         },
-        body: formData,
+        body: JSON.stringify(payload),
       });
 
-      let data;
-      if (!response.ok) {
-        // Fallback to JSON payload if FormData was rejected
-        const fallbackResponse = await fetch(addUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({
-            items: [
-              {
-                id: Number(variantId),
-                quantity: 1,
-                properties: {
-                  _is_free_gift: 'true',
-                  Reward: 'Free Gift ($150+ Order)',
-                },
-              },
-            ],
-          }),
-        });
+      const data = await response.json();
+      console.log('[CartRewardCoordinator] /cart/add.js response (status', response.status, '):', data);
 
-        if (fallbackResponse.ok) {
-          response = fallbackResponse;
-          data = await fallbackResponse.json();
-        } else {
-          data = await response.json().catch(() => ({}));
-          console.error(
-            '[CartRewardCoordinator] Failed to add free gift product (variant ID:',
-            variantId,
-            '):',
-            data.description || data.message || response.statusText
-          );
-          return false;
-        }
-      } else {
-        data = await response.json();
-      }
-
-      console.log('[CartRewardCoordinator] /cart/add.js response:', data);
-
-      if (data.status) {
+      if (!response.ok || data.status) {
         console.error(
-          '[CartRewardCoordinator] Shopify rejected free gift variant ID:',
-          variantId,
-          data.description || data.message
+          '[CartRewardCoordinator] ❌ Shopify rejected gift variant ID', variantId,
+          '— HTTP', response.status,
+          '—', data.description || data.message || 'Unknown error'
         );
+        console.error('[CartRewardCoordinator] Make sure variant ID', variantId, 'exists and is in-stock in your store.');
         return false;
       }
 
-      // Re-render cart drawer with the updated contents
-      if (cartDrawer && data.sections) {
-        cartDrawer.renderContents(data);
-      } else {
-        await CartRewardCoordinator.refreshDrawerMarkup();
+      console.log('[CartRewardCoordinator] ✅ Gift added successfully. Refreshing drawer...');
+
+      // Refresh the drawer markup via Section Rendering API.
+      // Do NOT call cartDrawer.renderContents() here — that would call sync()
+      // while isSyncing=true and silently deadlock the entire coordinator.
+      await CartRewardCoordinator.refreshDrawerMarkup();
+
+      // Update the is-empty class on the cart-drawer element if needed
+      const cartDrawer = document.querySelector('cart-drawer');
+      if (cartDrawer) {
+        cartDrawer.classList.remove('is-empty');
       }
 
       return true;
@@ -497,45 +483,45 @@ class CartRewardCoordinator {
 
   /**
    * Removes the automatic free gift from cart via POST /cart/change.js.
+   *
+   * IMPORTANT: Same as addGiftItem — must NOT call cartDrawer.renderContents()
+   * or CartRewardCoordinator.sync() due to isSyncing deadlock. Uses
+   * refreshDrawerMarkup() instead.
+   *
    * @param {string} lineKey - Line item key of the gift
    * @returns {Promise<boolean>}
    */
   static async removeGiftItem(lineKey) {
     try {
       const changeUrl = `${window.routes?.cart_change_url || '/cart/change'}.js`;
-      const cartDrawer = document.querySelector('cart-drawer');
-
-      const formData = new FormData();
-      formData.append('id', lineKey);
-      formData.append('quantity', '0');
-
-      if (cartDrawer && typeof cartDrawer.getSectionsToRender === 'function') {
-        const sections = cartDrawer.getSectionsToRender().map((s) => s.id);
-        formData.append('sections', sections.join(','));
-        formData.append('sections_url', window.location.pathname);
-      }
 
       console.log('[CartRewardCoordinator] Removing free gift line key:', lineKey);
 
       const response = await fetch(changeUrl, {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
           Accept: 'application/json',
         },
-        body: formData,
+        body: JSON.stringify({ id: lineKey, quantity: 0 }),
       });
 
       const data = await response.json();
-      console.log('[CartRewardCoordinator] /cart/change.js response:', data);
+      console.log('[CartRewardCoordinator] /cart/change.js remove response (status', response.status, '):', data);
 
-      if (cartDrawer && data.sections) {
-        cartDrawer.renderContents(data);
-      } else {
-        await CartRewardCoordinator.refreshDrawerMarkup();
+      if (!response.ok || data.status) {
+        console.error('[CartRewardCoordinator] ❌ Failed to remove gift:', data.description || data.message);
+        return false;
       }
 
-      return !data.status;
+      console.log('[CartRewardCoordinator] ✅ Gift removed. Refreshing drawer...');
+
+      // Refresh the drawer markup via Section Rendering API.
+      // Do NOT call cartDrawer.renderContents() — same deadlock risk as addGiftItem.
+      await CartRewardCoordinator.refreshDrawerMarkup();
+
+      return true;
     } catch (error) {
       console.error('[CartRewardCoordinator] Exception removing automatic free gift:', error);
       return false;
@@ -544,10 +530,25 @@ class CartRewardCoordinator {
 
   /**
    * Main synchronization entry point. Checks eligibility and reconciles gift state.
-   * @param {Object} [providedCartData] - Optional existing cart state
+   *
+   * Guards against re-entrant calls via isSyncing. The addGiftItem / removeGiftItem
+   * helpers are designed to NOT call back into sync() so there is no deadlock.
+   *
+   * @param {Object} [providedCartData] - Optional existing cart state (must have items[])
    */
   static async sync(providedCartData) {
-    if (this.isSyncing) return;
+    if (this.isSyncing) {
+      // Queue one deferred retry so a sync requested during an ongoing sync
+      // is not silently dropped (e.g. when PUB_SUB fires during addGiftItem).
+      if (!this._syncQueued) {
+        this._syncQueued = true;
+        setTimeout(() => {
+          this._syncQueued = false;
+          CartRewardCoordinator.sync();
+        }, 500);
+      }
+      return;
+    }
     this.isSyncing = true;
 
     try {
@@ -560,12 +561,17 @@ class CartRewardCoordinator {
         : this.defaultGiftVariantId;
       const moneyFormat = rewardEl?.dataset.moneyFormat || '${{amount}}';
 
-      let cart = providedCartData;
-      if (!cart || !Array.isArray(cart.items)) {
+      // providedCartData from product-form.js is the /cart/add.js response which
+      // has items as a single object (not an array). Always fetch the full cart to
+      // get accurate item_count and all line items.
+      let cart = (providedCartData && Array.isArray(providedCartData.items))
+        ? providedCartData
+        : null;
+
+      if (!cart) {
         cart = await this.fetchCartState();
       }
       if (!cart || !Array.isArray(cart.items)) {
-        this.isSyncing = false;
         return;
       }
 
@@ -575,7 +581,7 @@ class CartRewardCoordinator {
       const existingGift = findFreeGiftInCart(cart.items, giftVariantId);
       const isDeclined = sessionStorage.getItem('free_gift_declined') === 'true';
 
-      // 2. Update UI immediately
+      // 2. Update progress bar UI immediately with current data
       if (rewardEl) {
         updateCartRewardUI(rewardEl, qualifyingSubtotal, thresholdCents, moneyFormat);
       }
@@ -592,19 +598,20 @@ class CartRewardCoordinator {
         if (isDeclined) {
           sessionStorage.removeItem('free_gift_declined');
         }
-
-        // If gift is in cart, remove it
+        // If gift is in cart but no longer eligible, remove it
         if (existingGift) {
+          console.log('[CartRewardCoordinator] Below threshold — removing gift from cart');
           await this.removeGiftItem(existingGift.key);
         }
       } else {
         // Qualifying subtotal >= $150
         if (!existingGift && !isDeclined) {
+          console.log('[CartRewardCoordinator] Threshold met — adding gift to cart');
           await this.addGiftItem(giftVariantId);
         }
       }
     } catch (err) {
-      console.error('Error during CartRewardCoordinator.sync:', err);
+      console.error('[CartRewardCoordinator] Error during sync:', err);
     } finally {
       this.isSyncing = false;
     }

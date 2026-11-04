@@ -84,7 +84,10 @@
                 {%- for item in cart.items -%}
                   {%- liquid
                     assign is_page_free_gift = false
+                    assign gift_variant_id_num = settings.free_gift_variant_id | default: '15423696765037' | plus: 0
                     if item.properties._is_free_gift == 'true' or item.properties['_is_free_gift'] == 'true'
+                      assign is_page_free_gift = true
+                    elsif item.variant_id == gift_variant_id_num
                       assign is_page_free_gift = true
                     endif
                   -%}

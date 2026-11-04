@@ -506,7 +506,7 @@ cart-drawer-items::-webkit-scrollbar-track-piece {
 
 .cart-drawer-reward__progress-inner {
   position: relative;
-  margin: 0 1.4rem; /* 14px on each side = half of 2.8rem badge so truck stays within card bounds */
+  margin: 0 1.5rem; /* 15px on each side = half of 3.0rem badge so truck stays within card bounds */
   height: 0.8rem;
   display: flex;
   align-items: center;
@@ -542,14 +542,15 @@ cart-drawer-items::-webkit-scrollbar-track-piece {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: left 0.6s cubic-bezier(0.25, 1, 0.5, 1);
   pointer-events: none;
   z-index: 2;
 }
 
 .cart-drawer-reward__badge {
-  width: 2.8rem;
-  height: 2.8rem;
+  position: relative;
+  width: 3rem;
+  height: 3rem;
   border-radius: 50%;
   background-color: #ffffff;
   border: 0.2rem solid #1b434d;
@@ -561,16 +562,34 @@ cart-drawer-items::-webkit-scrollbar-track-piece {
   box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.14);
 }
 
-.cart-drawer-reward__badge-check {
-  display: none;
-  font-size: 1.4rem;
-  font-weight: bold;
-}
-
 .cart-drawer-reward__badge-truck {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
+  transition: color 0.3s ease;
+}
+
+.cart-drawer-reward__badge-truck svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.cart-drawer-reward__badge-check {
+  display: none;
+  position: absolute;
+  top: -0.4rem;
+  right: -0.4rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background-color: #1a7442;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5rem;
+  text-align: center;
+  border: 0.15rem solid #ffffff;
+  box-shadow: 0 0.1rem 0.3rem rgba(0, 0, 0, 0.2);
 }
 
 /* Destination Reached (100% / $150 Unlocked) */
@@ -579,14 +598,16 @@ cart-drawer-items::-webkit-scrollbar-track-piece {
   border-color: #1a7442;
   color: #ffffff;
   transform: scale(1.08);
-}
-
-.cart-drawer-reward__milestone.is-completed .cart-drawer-reward__badge-check {
-  display: inline-block;
+  box-shadow: 0 0.2rem 1.2rem rgba(26, 116, 66, 0.35);
 }
 
 .cart-drawer-reward__milestone.is-completed .cart-drawer-reward__badge-truck {
-  display: none;
+  display: flex;
+  color: #ffffff;
+}
+
+.cart-drawer-reward__milestone.is-completed .cart-drawer-reward__badge-check {
+  display: block;
 }
 
 /* Reward Labels Row */
