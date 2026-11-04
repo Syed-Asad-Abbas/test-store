@@ -22,7 +22,7 @@
   assign reward_threshold_dollars = settings.free_shipping_gift_threshold | default: 150
   assign reward_threshold_cents = reward_threshold_dollars | times: 100
 
-  assign gift_variant_id = settings.free_gift_variant_id | default: '15423696765037'
+  assign gift_variant_id = settings.free_gift_variant_id | default: '50503440892013'
   if settings.free_gift_product != blank and settings.free_gift_product.selected_or_first_available_variant != blank
     assign gift_variant_id = settings.free_gift_product.selected_or_first_available_variant.id
   endif

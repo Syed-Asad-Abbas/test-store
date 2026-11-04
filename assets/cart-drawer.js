@@ -343,7 +343,7 @@ function updateCartRewardUI(rewardElement, qualifyingSubtotalCents, thresholdCen
 class CartRewardCoordinator {
   static isSyncing = false;
   static defaultThresholdCents = 15000;
-  static defaultGiftVariantId = '15423696765037';
+  static defaultGiftVariantId = '50503440892013';
 
   /**
    * Fetches the latest full cart state via /cart.js.
