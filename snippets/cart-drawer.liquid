@@ -21,7 +21,12 @@
   assign reward_enabled = settings.free_shipping_gift_enabled | default: true
   assign reward_threshold_dollars = settings.free_shipping_gift_threshold | default: 150
   assign reward_threshold_cents = reward_threshold_dollars | times: 100
-  assign gift_variant_id = settings.free_gift_variant_id | default: '15423696765037' | plus: 0
+
+  assign gift_variant_id = settings.free_gift_variant_id | default: '15423696765037'
+  if settings.free_gift_product != blank and settings.free_gift_product.selected_or_first_available_variant != blank
+    assign gift_variant_id = settings.free_gift_product.selected_or_first_available_variant.id
+  endif
+  assign gift_variant_id_num = gift_variant_id | plus: 0
 
   assign qualifying_subtotal_cents = 0
   assign gift_in_cart = false
@@ -31,7 +36,7 @@
     assign is_gift = false
     if item.properties._is_free_gift == 'true' or item.properties['_is_free_gift'] == 'true'
       assign is_gift = true
-    elsif item.variant_id == gift_variant_id and item.final_line_price == 0
+    elsif item.variant_id == gift_variant_id_num and item.final_line_price == 0
       assign is_gift = true
     endif
 
@@ -119,21 +124,27 @@
           </div>
 
           <div class="cart-drawer-reward__progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ progress_percent | round }}">
-            <div class="cart-drawer-reward__track">
-              <div class="cart-drawer-reward__indicator" style="width: {{ progress_percent }}%;" data-reward-indicator></div>
-            </div>
-            <div class="cart-drawer-reward__milestone{% if is_unlocked %} is-completed{% endif %}" data-reward-milestone>
-              <span class="cart-drawer-reward__badge">
-                <span class="cart-drawer-reward__badge-check" aria-hidden="true">✓</span>
-                <span class="cart-drawer-reward__badge-truck" aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="1" y="3" width="15" height="13"></rect>
-                    <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
-                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
-                  </svg>
+            <div class="cart-drawer-reward__progress-inner">
+              <div class="cart-drawer-reward__track">
+                <div class="cart-drawer-reward__indicator" style="width: {{ progress_percent }}%;" data-reward-indicator></div>
+              </div>
+              <div
+                class="cart-drawer-reward__milestone{% if is_unlocked %} is-completed{% endif %}"
+                style="left: {{ progress_percent }}%;"
+                data-reward-milestone
+              >
+                <span class="cart-drawer-reward__badge">
+                  <span class="cart-drawer-reward__badge-check" aria-hidden="true">✓</span>
+                  <span class="cart-drawer-reward__badge-truck" aria-hidden="true">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="1" y="3" width="15" height="13"></rect>
+                      <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                      <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                      <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>
+                  </span>
                 </span>
-              </span>
+              </div>
             </div>
           </div>
 

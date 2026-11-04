@@ -219,7 +219,7 @@ function isCartItemFreeGift(item, giftVariantId) {
   if (item.properties && (item.properties._is_free_gift === 'true' || item.properties['_is_free_gift'] === 'true')) {
     return true;
   }
-  if (giftVariantId && String(item.variant_id) === String(giftVariantId) && item.final_line_price === 0) {
+  if (giftVariantId && String(item.variant_id) === String(giftVariantId)) {
     return true;
   }
   return false;
@@ -312,9 +312,10 @@ function updateCartRewardUI(rewardElement, qualifyingSubtotalCents, thresholdCen
   if (lockedMsg) lockedMsg.classList.toggle('hidden', isUnlocked);
   if (unlockedMsg) unlockedMsg.classList.toggle('hidden', !isUnlocked);
 
-  // 5. Update milestone badge
+  // 5. Update milestone badge (Dynamic Traveling Truck Journey)
   const milestone = rewardElement.querySelector('[data-reward-milestone]');
   if (milestone) {
+    milestone.style.left = `${progressPercent}%`;
     milestone.classList.toggle('is-completed', isUnlocked);
   }
 
@@ -396,26 +397,100 @@ class CartRewardCoordinator {
    * @returns {Promise<boolean>}
    */
   static async addGiftItem(variantId) {
+    if (!variantId) {
+      console.warn('[CartRewardCoordinator] Cannot add gift: missing variant ID');
+      return false;
+    }
+
     try {
-      const response = await fetch(`${routes.cart_add_url}`, {
+      const addUrl = `${window.routes?.cart_add_url || '/cart/add'}.js`;
+      const cartDrawer = document.querySelector('cart-drawer');
+
+      // Use FormData with sections for reliable Shopify cart rendering
+      const formData = new FormData();
+      formData.append('id', String(variantId));
+      formData.append('quantity', '1');
+      formData.append('properties[_is_free_gift]', 'true');
+      formData.append('properties[Reward]', 'Free Gift ($150+ Order)');
+
+      if (cartDrawer && typeof cartDrawer.getSectionsToRender === 'function') {
+        const sections = cartDrawer.getSectionsToRender().map((s) => s.id);
+        formData.append('sections', sections.join(','));
+        formData.append('sections_url', window.location.pathname);
+      }
+
+      console.log('[CartRewardCoordinator] Adding free gift variant ID:', variantId);
+
+      let response = await fetch(addUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          Accept: 'application/json',
         },
-        body: JSON.stringify({
-          id: variantId,
-          quantity: 1,
-          properties: {
-            _is_free_gift: 'true',
-            Reward: 'Free Gift ($150+ Order)',
-          },
-        }),
+        body: formData,
       });
-      const data = await response.json();
-      return !data.status;
+
+      let data;
+      if (!response.ok) {
+        // Fallback to JSON payload if FormData was rejected
+        const fallbackResponse = await fetch(addUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            items: [
+              {
+                id: Number(variantId),
+                quantity: 1,
+                properties: {
+                  _is_free_gift: 'true',
+                  Reward: 'Free Gift ($150+ Order)',
+                },
+              },
+            ],
+          }),
+        });
+
+        if (fallbackResponse.ok) {
+          response = fallbackResponse;
+          data = await fallbackResponse.json();
+        } else {
+          data = await response.json().catch(() => ({}));
+          console.error(
+            '[CartRewardCoordinator] Failed to add free gift product (variant ID:',
+            variantId,
+            '):',
+            data.description || data.message || response.statusText
+          );
+          return false;
+        }
+      } else {
+        data = await response.json();
+      }
+
+      console.log('[CartRewardCoordinator] /cart/add.js response:', data);
+
+      if (data.status) {
+        console.error(
+          '[CartRewardCoordinator] Shopify rejected free gift variant ID:',
+          variantId,
+          data.description || data.message
+        );
+        return false;
+      }
+
+      // Re-render cart drawer with the updated contents
+      if (cartDrawer && data.sections) {
+        cartDrawer.renderContents(data);
+      } else {
+        await CartRewardCoordinator.refreshDrawerMarkup();
+      }
+
+      return true;
     } catch (error) {
-      console.error('Failed to add automatic free gift:', error);
+      console.error('[CartRewardCoordinator] Exception adding automatic free gift:', error);
       return false;
     }
   }
@@ -427,21 +502,42 @@ class CartRewardCoordinator {
    */
   static async removeGiftItem(lineKey) {
     try {
-      const response = await fetch(`${routes.cart_change_url}`, {
+      const changeUrl = `${window.routes?.cart_change_url || '/cart/change'}.js`;
+      const cartDrawer = document.querySelector('cart-drawer');
+
+      const formData = new FormData();
+      formData.append('id', lineKey);
+      formData.append('quantity', '0');
+
+      if (cartDrawer && typeof cartDrawer.getSectionsToRender === 'function') {
+        const sections = cartDrawer.getSectionsToRender().map((s) => s.id);
+        formData.append('sections', sections.join(','));
+        formData.append('sections_url', window.location.pathname);
+      }
+
+      console.log('[CartRewardCoordinator] Removing free gift line key:', lineKey);
+
+      const response = await fetch(changeUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          Accept: 'application/json',
         },
-        body: JSON.stringify({
-          id: lineKey,
-          quantity: 0,
-        }),
+        body: formData,
       });
+
       const data = await response.json();
+      console.log('[CartRewardCoordinator] /cart/change.js response:', data);
+
+      if (cartDrawer && data.sections) {
+        cartDrawer.renderContents(data);
+      } else {
+        await CartRewardCoordinator.refreshDrawerMarkup();
+      }
+
       return !data.status;
     } catch (error) {
-      console.error('Failed to remove automatic free gift:', error);
+      console.error('[CartRewardCoordinator] Exception removing automatic free gift:', error);
       return false;
     }
   }
@@ -490,8 +586,6 @@ class CartRewardCoordinator {
         headingCount.textContent = cart.item_count || 0;
       }
 
-      let mutated = false;
-
       // 4. Handle gift eligibility transition
       if (!isEligible) {
         // Reset customer decline state when subtotal falls below $150
@@ -502,19 +596,12 @@ class CartRewardCoordinator {
         // If gift is in cart, remove it
         if (existingGift) {
           await this.removeGiftItem(existingGift.key);
-          mutated = true;
         }
       } else {
         // Qualifying subtotal >= $150
         if (!existingGift && !isDeclined) {
           await this.addGiftItem(giftVariantId);
-          mutated = true;
         }
-      }
-
-      // 5. If cart was mutated, refresh drawer markup
-      if (mutated) {
-        await this.refreshDrawerMarkup();
       }
     } catch (err) {
       console.error('Error during CartRewardCoordinator.sync:', err);
