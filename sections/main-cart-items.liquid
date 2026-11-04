@@ -82,8 +82,14 @@
 
               <tbody>
                 {%- for item in cart.items -%}
+                  {%- liquid
+                    assign is_page_free_gift = false
+                    if item.properties._is_free_gift == 'true' or item.properties['_is_free_gift'] == 'true'
+                      assign is_page_free_gift = true
+                    endif
+                  -%}
                   <tr
-                    class="cart-item {% if item.parent_relationship.parent != null %}cart-item__nested-line{% endif %}"
+                    class="cart-item {% if item.parent_relationship.parent != null %}cart-item__nested-line{% endif %}{% if is_page_free_gift %} cart-item--free-gift{% endif %}"
                     id="CartItem-{{ item.index | plus: 1 }}"
                     {% if item.parent_relationship.parent != null %}
                       aria-label="{{- 'products.product.nested_label' | t: title: item.product.title, parent_title: item.parent_relationship.parent.title | escape -}}"
@@ -103,6 +109,18 @@
                             height="{{ 150 | divided_by: item.image.aspect_ratio | ceil }}"
                           >
                         </div>
+                      {% elsif is_page_free_gift %}
+                        <a href="{{ item.url }}" class="cart-item__link" aria-hidden="true" tabindex="-1"> </a>
+                        <div class="cart-item__image-container gradient">
+                          <img
+                            src="{{ 'gift.jpg' | asset_img_url: '300x' }}"
+                            class="cart-item__image"
+                            alt="{{ item.product.title | default: 'Free Gift' | escape }}"
+                            loading="lazy"
+                            width="150"
+                            height="150"
+                          >
+                        </div>
                       {% endif %}
                     </td>
 
@@ -120,7 +138,22 @@
                         -%}
                       </div>
 
-                      {%- if item.original_price != item.final_price -%}
+                      {%- if is_page_free_gift -%}
+                        <div class="cart-item__free-gift-badge-wrapper">
+                          <span class="badge badge--free-gift">FREE GIFT</span>
+                        </div>
+                      {%- endif -%}
+
+                      {%- if is_page_free_gift -%}
+                        <div class="cart-item__discounted-prices">
+                          <s class="cart-item__old-price product-option">
+                            {{- item.original_price | money -}}
+                          </s>
+                          <strong class="cart-item__final-price product-option price--free-gift">
+                            FREE
+                          </strong>
+                        </div>
+                      {%- elsif item.original_price != item.final_price -%}
                         <div class="cart-item__discounted-prices">
                           <span class="visually-hidden">
                             {{ 'products.product.price.regular_price' | t }}
@@ -230,7 +263,27 @@
                       endif
                     -%}
                     <td class="cart-item__quantity{% if has_qty_rules or has_vol_pricing %} cart-item__quantity--info{% endif %}">
-                      <quantity-popover>
+                      {%- if is_page_free_gift -%}
+                        <div class="cart-item__quantity-wrapper cart-item__quantity-wrapper--free-gift">
+                          <span class="cart-item__quantity-gift-pill">Qty: 1</span>
+                          <cart-remove-button
+                            id="Remove-{{ item.index | plus: 1 }}"
+                            data-index="{{ item.index | plus: 1 }}"
+                            data-is-free-gift="true"
+                          >
+                            <a
+                              href="{{ item.url_to_remove }}"
+                              class="button button--tertiary"
+                              aria-label="{{ 'sections.cart.remove_title' | t: title: item.title | escape }}"
+                            >
+                              <span class="svg-wrapper">
+                                {{- 'icon-remove.svg' | inline_asset_content -}}
+                              </span>
+                            </a>
+                          </cart-remove-button>
+                        </div>
+                      {%- else -%}
+                        <quantity-popover>
                         <div class="cart-item__quantity-wrapper quantity-popover-wrapper">
                           <label class="visually-hidden" for="Quantity-{{ item.index | plus: 1 }}">
                             {{ 'products.product.quantity.label' | t }}
@@ -413,6 +466,7 @@
                           </span>
                         </div>
                       </quantity-popover>
+                      {%- endif -%}
                     </td>
 
                     <td class="cart-item__totals right small-hide">

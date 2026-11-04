@@ -1449,6 +1449,36 @@
         "id": "cart_color_scheme",
         "label": "t:sections.all.colors.label",
         "default": "scheme-1"
+      },
+      {
+        "type": "header",
+        "content": "Free Shipping & Free Gift Reward"
+      },
+      {
+        "type": "checkbox",
+        "id": "free_shipping_gift_enabled",
+        "label": "Enable Free Shipping & Free Gift Reward",
+        "default": true
+      },
+      {
+        "type": "number",
+        "id": "free_shipping_gift_threshold",
+        "label": "Shared Threshold ($)",
+        "default": 150,
+        "info": "Qualifying subtotal required for both free shipping and the automatic free gift."
+      },
+      {
+        "type": "text",
+        "id": "free_gift_variant_id",
+        "label": "Free Gift Variant ID",
+        "default": "15423696765037",
+        "info": "Variant ID of the product automatically awarded when threshold is reached."
+      },
+      {
+        "type": "product",
+        "id": "free_gift_product",
+        "label": "Free Gift Product",
+        "info": "Optional reference to the free gift product."
       }
     ]
   },

@@ -4,6 +4,9 @@ class CartRemoveButton extends HTMLElement {
 
     this.addEventListener('click', (event) => {
       event.preventDefault();
+      if (this.dataset.isFreeGift === 'true') {
+        sessionStorage.setItem('free_gift_declined', 'true');
+      }
       const cartItems = this.closest('cart-items') || this.closest('cart-drawer-items');
       cartItems.updateQuantity(this.dataset.index, 0, event);
     });
@@ -254,6 +257,9 @@ class CartItems extends window.StandardEvents.createViewEventElement(HTMLElement
         });
 
         publish(PUB_SUB_EVENTS.cartUpdate, { source: 'cart-items', cartData: parsedState, variantId: variantId });
+        if (typeof CartRewardCoordinator !== 'undefined') {
+          CartRewardCoordinator.sync(parsedState);
+        }
       })
       .catch((e) => {
         this.querySelectorAll('.loading__spinner').forEach((overlay) => overlay.classList.add('hidden'));

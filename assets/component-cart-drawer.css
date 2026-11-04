@@ -45,16 +45,21 @@
 }
 
 cart-drawer.is-empty .drawer__inner {
-  display: grid;
-  grid-template-rows: 1fr;
-  align-items: center;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 1.5rem;
 }
 
 cart-drawer.is-empty .drawer__header {
-  display: none;
+  display: flex;
 }
 
+cart-drawer.is-empty .drawer__inner-empty {
+  display: flex;
+  flex: 1;
+}
+
+cart-drawer:not(.is-empty) .drawer__inner-empty,
 cart-drawer:not(.is-empty) .cart-drawer__warnings,
 cart-drawer:not(.is-empty) .cart-drawer__collection {
   display: none;
@@ -411,4 +416,232 @@ cart-drawer-items::-webkit-scrollbar-track-piece {
   .cart-drawer .cart-item__error {
     margin-left: 0;
   }
+}
+
+/* -------------------------------------------------------------
+ * TASK 2: Cart Drawer Heading Count & Free Shipping / Gift Reward
+ * ----------------------------------------------------------- */
+.drawer__heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.cart-drawer__heading-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  height: 2.2rem;
+  padding: 0 0.6rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 9999px;
+  background-color: rgb(var(--color-foreground));
+  color: rgb(var(--color-background));
+}
+
+.cart-drawer-reward {
+  margin: 0.5rem 0 1.5rem;
+  padding: 1.4rem;
+  border-radius: 1rem;
+  background-color: rgba(var(--color-foreground), 0.03);
+  border: 0.1rem solid rgba(var(--color-foreground), 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.cart-drawer-reward__messages {
+  text-align: left;
+}
+
+.cart-drawer-reward__message {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.4;
+  color: rgb(var(--color-foreground));
+}
+
+.cart-drawer-reward__message--locked strong {
+  color: rgb(var(--color-foreground));
+  font-weight: 700;
+}
+
+.cart-drawer-reward__unlocked-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cart-drawer-reward__message--unlocked {
+  color: #1a7442;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cart-drawer-reward__check-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background-color: #1a7442;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+/* Progress bar track & indicator */
+.cart-drawer-reward__progress-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding-right: 1.6rem;
+  box-sizing: border-box;
+}
+
+.cart-drawer-reward__track {
+  width: 100%;
+  height: 0.8rem;
+  background-color: rgba(var(--color-foreground), 0.1);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.cart-drawer-reward__indicator {
+  height: 100%;
+  background: linear-gradient(90deg, #1b434d, #2b6c7a);
+  border-radius: 9999px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 100%;
+}
+
+.cart-drawer-reward.is-unlocked .cart-drawer-reward__indicator {
+  background: linear-gradient(90deg, #1a7442, #2fa360);
+}
+
+/* Milestone Badge Marker at 100% ($150) */
+.cart-drawer-reward__milestone {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cart-drawer-reward__badge {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 50%;
+  background-color: rgb(var(--color-background));
+  border: 0.2rem solid rgba(var(--color-foreground), 0.2);
+  color: rgba(var(--color-foreground), 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 0.2rem 0.6rem rgba(0, 0, 0, 0.08);
+}
+
+.cart-drawer-reward__badge-check {
+  display: none;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+.cart-drawer-reward__badge-truck {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cart-drawer-reward__milestone.is-completed .cart-drawer-reward__badge {
+  background-color: #1a7442;
+  border-color: #1a7442;
+  color: #ffffff;
+}
+
+.cart-drawer-reward__milestone.is-completed .cart-drawer-reward__badge-check {
+  display: inline-block;
+}
+
+.cart-drawer-reward__milestone.is-completed .cart-drawer-reward__badge-truck {
+  display: none;
+}
+
+/* Reward Labels Row */
+.cart-drawer-reward__labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.25rem;
+  color: rgba(var(--color-foreground), 0.7);
+}
+
+.cart-drawer-reward__label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: color 0.3s ease, font-weight 0.3s ease;
+}
+
+.cart-drawer-reward__label.is-unlocked {
+  color: #1a7442;
+  font-weight: 600;
+}
+
+.cart-drawer-reward__label-status {
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+/* Free Gift styling in line items */
+.cart-item--free-gift {
+  background-color: rgba(var(--color-foreground), 0.02);
+}
+
+.cart-item__free-gift-badge-wrapper {
+  margin-top: 0.4rem;
+}
+
+.badge--free-gift {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.05rem;
+  color: #ffffff;
+  background-color: #1b434d;
+  border-radius: 0.4rem;
+  text-transform: uppercase;
+}
+
+.price--free-gift {
+  color: #1a7442 !important;
+  font-weight: 700;
+}
+
+.cart-item__quantity-wrapper--free-gift {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.cart-item__quantity-gift-pill {
+  display: inline-block;
+  padding: 0.4rem 0.9rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border-radius: 0.4rem;
+  background-color: rgba(var(--color-foreground), 0.06);
+  color: rgb(var(--color-foreground));
 }
