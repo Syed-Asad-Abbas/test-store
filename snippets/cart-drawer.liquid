@@ -36,7 +36,7 @@
     assign is_gift = false
     if item.properties._is_free_gift == 'true' or item.properties['_is_free_gift'] == 'true'
       assign is_gift = true
-    elsif item.variant_id == gift_variant_id_num and item.final_line_price == 0
+    elsif item.variant_id == gift_variant_id_num
       assign is_gift = true
     endif
 
